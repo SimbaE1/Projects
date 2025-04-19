@@ -1,11 +1,12 @@
 # Projects
 Repository for coding projects. Other repositories may be moved to here in the future.
 
-THis is the next paragraph. This is *bold* and this is _italic_.
 
-## Heading 2
+# PicarX
+_I am using the Sunfounder PicarX with a Rasberry Pi 5._
 
-Here is a list:
+The Mahler file is not in this repository, but is a recording of Pierre Boulez conducting Mahler Symphony No. 6.
 
-* Item 1
-* Item 2
+The purpose of this is to interact with the PicarX.
+
+I have found it is pretty good at chess, but starts forgetting position in the middlegame.
