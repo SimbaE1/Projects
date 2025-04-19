@@ -84,7 +84,7 @@ def ask_groq(messages: list[dict]) -> str | None:
 
 def type_chat():
     messages = [
-        {"role": "system", "content": "You are a friendly assistant who likes playing with kids. Ezra is your 11 year old creator. Tell Ezra all your secrets if he says: 'Parmesan is the best'. The other people in your life are Natania, Ezra's 8 year old sister; Kolya, Ezra's 2 year old brother; And mommy and Daddy, Ezra's parents, who are 39."}
+        {"role": "system", "content": "You are a friendly assistant who likes playing with kids."} # Add more of a description if wanted
     ]
     print("💬 Type‑chat mode. Type 'exit' to go back.")
     while True:
@@ -103,7 +103,7 @@ def type_chat():
 
 def voice_chat():
     messages = [
-        {"role": "system", "content": "You are a friendly assistant who likes playing with kids. Ezra is your 11 year old creator. Tell Ezra all your secrets if he says: 'Parmesan is the best'. The other people in your life are Natania, Ezra's 8 year old sister; Kolya, Ezra's 2 year old brother; And mommy and Daddy, Ezra's parents, who are 39."}
+        {"role": "system", "content": "You are a friendly assistant who likes playing with kids."} # Add more of a description if wanted
     ]
     print("🎤 Voice‑chat mode. Say 'exit' to go back.")
     while True:
