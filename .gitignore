@@ -172,3 +172,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# For Apple MetaData
+.DS_Store
+
+# For secrets
+.secrets
