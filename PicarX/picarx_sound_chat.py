@@ -19,7 +19,7 @@ MAHLER_PATH  = "Pierre Boulez - Conducts Mahler - Symphony No. 6.mp3"
 
 # ─── SDL / ALSA setup ──────────────────────────────────────────────────
 os.environ["SDL_AUDIODRIVER"] = "alsa"
-os.environ["AUDIODEV"]        = "plughw:0,0"   # HiFiBerry card 0,device 0
+os.environ["AUDIODEV"]        = "plughw:2,0"   # HiFiBerry card 0,device 0
 
 pygame.init()
 pygame.mixer.init()            # will fail if HiFiBerry is busy
