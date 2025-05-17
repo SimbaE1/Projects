@@ -21,11 +21,25 @@ DOES WORK
 Give it an alphabet substitution or ceaser cipher and it will figure it out. Preferably 200+ char. Try not to use names or urls, as that trips it up for now.
 
 EXAMPLE:
-python3 auto_sub_solver.py --clean -r 150 -i 12000 "Ejiiv. C ictj lv ovwj, mv C dnwj lecm ocbejk wjovwjk. Cl cm kjniiz ovvi, cq cl hvktm. C ensj lkcjw lecm ajqvkj, axl cl mjjdm lecm cm n dxoe mevkljk nfw ajlljk nbbkvnoe. Cl dcrel aj bvmmcaij lv xmj n bzlevf icaknkz lv mjj cq lej ljpl dntjm mjfmj, hecoe hvxiw cdbkvsj nooxknoz."
+python3 auto_sub_solver.py --clean "Yjr wiovl ntpem gpc kiqad pbrt yjr zsxu fph. O zolr wiovl gpcrd. Yjru str brtu dzu smf dqsty. O jpar yjr fph fprd mpy hry qsf. Xrntsd szdp rmkpu zrsaomh smf kiqaomh. Yjru jsbr rurd pm yjr dofr pg yjrot jrsf yp dapy atrfsyptd. Sm rcyts snozoyu pg dmslrd od yp drr jrsy. yjod szzped yjrq yp dapy zogr rsdozu."
+[*] Auto params  restarts=102  iterations=9180
 
-[+] Best key  : BPIMHNJWLERTSACXFGVKQODUZY
-[+] Score     : -239.71
+[+] Best key  : PVXSWDFGUHJKNBIOMEARYCQZTL
+[+] Sense‑ratio: 93.22%
 
 ===== Decryption =====
 
-HELLO. I LIKE TO CODE, SO I MADE THIS CIPHER DECODER. IT IS REALLY COOL, IF IT WORKS. I HAVE TRIED THIS BEFORE, BUT IT SEEMS THIS IS A MUCH SHORTER AND BETTER APPROACH. IT MIGHT BE POSSIBLE TO USE A PYTHON LIBRARY TO SEE IF THE TEXT MAKES SENSE, WHICH WOULD IMPROVE ACCURACY.
+THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG. I LIKE QUICK FOXES. THEY ARE VERY SLY AND SMART. I HOPE THE DOG DOES NOT GET MAD. ZEBRAS ALSO ENJOY LEAPING AND JUMPING. THEY HAVE EYES ON THE SIDE OF THEIR HEAD TO SPOT PREDATORS. AN EXTRA ABILITY OF SNAKES IS TO SEE HEAT. THIS ALLOWS THEM TO SPOT LIFE EASILY.
+ezra@Ezras-Air Decode % python3 auto_sub_solver.py --clean "Yjr wiovl ntpem gpc kiqad pbrt yjr zsxu fph. O zolr wiovl gpcrd. Yjru str brtu dzu smf dqsty. O jpar yjr fph fprd mpy hry qsf. Xrntsd szdp rmkpu zrsaomh smf kiqaomh. Yjru jsbr rurd pm yjr dofr pg yjrot jrsf yp dapy atrfsyptd. Sm rcyts snozoyu pg dmslrd od yp drr jrsy. yjod szzped yjrq yp dapy zogr rsdozu."
+[*] Auto params  restarts=102  iterations=9180
+
+[+] Best key  : PVXSWDFGUHJKNBIOMEARYCQZTL
+[+] Sense‑ratio: 93.44%
+
+===== Decryption =====
+
+THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG. I LIKE QUICK FOXES. THEY ARE VERY SLY AND SMART. I HOPE THE DOG DOES NOT GET MAD. ZEBRAS ALSO ENJOY LEAPING AND JUMPING. THEY HAVE EYES ON THE SIDE OF THEIR HEAD TO SPOT PREDATORS. AN EXTRA ABILITY OF SNAKES IS TO SEE HEAT. THIS ALLOWS THEM TO SPOT LIFE EASILY.
+
+
+_NOTE_
+_Please do not use chars !, ', or " due to bash problems._
