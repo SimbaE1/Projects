@@ -24,6 +24,7 @@ Usage
 """
 from __future__ import annotations
 import argparse, math, random, re, string, sys, urllib.request, multiprocessing as mp
+import time
 from collections import defaultdict
 from pathlib import Path
 from typing import Tuple
@@ -177,9 +178,11 @@ def jakobsen(key:str,cipher:str,lam:float,use_clean:bool)->Tuple[str,float]:
 
 def _worker(args):
     cipher,restarts,iters,lam,clean_flag,seed=args
+    start_time = time.time()
+    print(f"[worker {seed}] starting – {restarts} restarts total")
     random.seed(seed)
     best_s,bk,br=float('-inf'),None,''
-    for _ in range(restarts):
+    for idx in range(restarts):
         key=random_key(); raw=decode(cipher,key)
         txt=clean(raw) if clean_flag else raw.upper()
         s=ngram_score(txt)+lam*word_score(txt); temp=20.0
@@ -193,11 +196,48 @@ def _worker(args):
             temp*=0.995
         if s>best_s:
             bk,br,best_s=key,raw,s
+        if idx % max(1, restarts // 50) == 0:  # update ~2% steps
+            pct = (idx / restarts) * 100
+            elapsed = time.time() - start_time
+            print(f"[worker {seed}] {pct:5.1f}%  "
+                  f"best={best_s:.1f}  elapsed={elapsed:4.1f}s",
+                  end="\r", flush=True)
+    total_time = time.time() - start_time
+    print(f"[worker {seed}] finished – best score {best_s:.2f} "
+          f"in {total_time:.1f}s".ljust(80))
     return bk,br,best_s
 
 # ----------------------------------------------------------------------
 # 7.  Crack orchestrator with adaptive escalation
 # ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# 7‑a.  Single‑pass crack (used by adaptive loop)
+# ----------------------------------------------------------------------
+def crack_once(cipher: str,
+               restarts: int,
+               iters: int,
+               lam: float,
+               use_clean: bool,
+               parallel: bool) -> Tuple[str, str, float]:
+    """
+    One simulated‑annealing run (with parallel restarts) + Jakobsen polish.
+    Returned tuple: (best_key, best_plaintext, combined_score).
+    """
+    ncpu = mp.cpu_count() if parallel else 1
+    chunk = (restarts + ncpu - 1) // ncpu
+    tasks = [(cipher, chunk, iters, lam, use_clean,
+              random.randrange(1 << 30)) for _ in range(ncpu)]
+    if parallel and ncpu > 1:
+        with mp.Pool(ncpu) as pool:
+            results = pool.map(_worker, tasks)
+    else:
+        results = [_worker(t) for t in tasks]
+
+    key, raw, score = max(results, key=lambda x: x[2])
+    key, score = jakobsen(key, cipher, lam, use_clean)
+    raw = decode(cipher, key)
+    return key, raw, score
 
 def crack(cipher:str,restarts:int,iters:int,lam:float,use_clean:bool,parallel:bool)->Tuple[str,str,float]:
     # First try Caesar
@@ -205,17 +245,8 @@ def crack(cipher:str,restarts:int,iters:int,lam:float,use_clean:bool,parallel:bo
     if caesar_plain:
         return caesar_key,caesar_plain,ratio
 
-    ncpu=mp.cpu_count() if parallel else 1
-    chunk=(restarts+ncpu-1)//ncpu
-    tasks=[(cipher,chunk,iters,lam,use_clean,random.randrange(1<<30)) for _ in range(ncpu)]
-    if parallel and ncpu>1:
-        with mp.Pool(ncpu) as pool:
-            res=pool.map(_worker,tasks)
-    else:
-        res=[_worker(t) for t in tasks]
-    key,raw,score=max(res,key=lambda x:x[2])
-    key,score=jakobsen(key,cipher,lam,use_clean)
-    raw=decode(cipher,key)
+    key, raw, score = crack_once(cipher, restarts, iters, lam,
+                                 use_clean, parallel)
     # Escalate if sense ratio poor
     ratio=sense_ratio(clean(raw) if use_clean else raw.upper())
     while ratio < 0.90:
@@ -248,9 +279,16 @@ def main():
     ap.add_argument('-r','--restarts',type=int,help='Random restarts')
     ap.add_argument('-i','--iters',type=int,help='Iterations per restart')
     ap.add_argument('--no-parallel',action='store_true')
+    ap.add_argument('--file', metavar='PATH', help='Read ciphertext from file')
     args=ap.parse_args()
 
-    cipher_raw=" ".join(args.cipher) if args.cipher else sys.stdin.read()
+    if args.file:
+        cipher_raw = Path(args.file).read_text(encoding="utf-8").strip()
+    elif args.cipher:
+        cipher_raw = " ".join(args.cipher)
+    else:
+        print("Paste ciphertext.  Finish with Ctrl‑D (mac/Linux) or Ctrl‑Z then Enter (Windows):")
+        cipher_raw = sys.stdin.read().strip()
     r,i=(args.restarts,args.iters)
     if r is None or i is None:
         r_auto,i_auto=autoscale(len(cipher_raw)); r=r or r_auto; i=i or i_auto
