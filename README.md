@@ -12,11 +12,11 @@ The purpose of this is to interact with the PicarX.
 
 I have found it is pretty good at chess, but starts forgetting position in the middlegame.
 
-DOES NOT WORK - FOR NOW
+##DOES NOT WORK - FOR NOW
 
 # Decoder
 
-DOES WORK
+##DOES WORK
 
 Give it an alphabet substitution or ceaser cipher and it will figure it out. Preferably 200+ char. Try not to use names or urls, as that trips it up for now.
 
@@ -41,5 +41,13 @@ ezra@Ezras-Air Decode % python3 auto_sub_solver.py --clean "Yjr wiovl ntpem gpc 
 THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG. I LIKE QUICK FOXES. THEY ARE VERY SLY AND SMART. I HOPE THE DOG DOES NOT GET MAD. ZEBRAS ALSO ENJOY LEAPING AND JUMPING. THEY HAVE EYES ON THE SIDE OF THEIR HEAD TO SPOT PREDATORS. AN EXTRA ABILITY OF SNAKES IS TO SEE HEAT. THIS ALLOWS THEM TO SPOT LIFE EASILY.
 
 
-_NOTE_
+__NOTE__
 _Please do not use chars !, ', or " due to bash problems._
+
+### HOW TO USE:
+
+*You might use python instead of python3.*
+1. python3 auto_sub_solver.py; This can be used for quick, simple encoded messages.
+2. python3 auto_sub_solver.py --clean; This is generally better and helps accuracy.
+3. python3 auto_sub_solver.py --clean -r RESTARTS -i ITERATIONS. This helps fine tune; Generally longer texts need less restarts and iterations.
+4. python3 auto_sub_solver.py --clean -r RESTARTS -i ITERATIONS --file file.txt; This can be used for long files, like when I decoded the US constitution. You edit file.txt first.
