@@ -51,3 +51,4 @@ _Please do not use chars !, ', or " due to bash problems._
 2. python3 auto_sub_solver.py --clean; This is generally better and helps accuracy.
 3. python3 auto_sub_solver.py --clean -r RESTARTS -i ITERATIONS. This helps fine tune; Generally longer texts need less restarts and iterations.
 4. python3 auto_sub_solver.py --clean -r RESTARTS -i ITERATIONS --file file.txt; This can be used for long files, like when I decoded the US constitution. You edit file.txt first.
+5. python3 auto_sub_solver.py --clean -r RESTARTS -i ITERATIONS --file file.txt lambda LAMBDA; Higher emphasizes how much weight is given to words.
