@@ -22,6 +22,7 @@ Usage
 -----
     python auto_sub_solver.py --clean "Ciphertext here …"
 """
+
 from __future__ import annotations
 import argparse, math, random, re, string, sys, urllib.request, multiprocessing as mp
 import time
@@ -34,6 +35,7 @@ from typing import Tuple
 # ----------------------------------------------------------------------
 ALPHA = string.ascii_uppercase
 LETTER_SPACE = set(ALPHA + " ")
+IGNORE_SET: set[str] = set()   # words the sense‑ratio should skip
 CACHE_DIR = Path(__file__).with_name(Path(__file__).stem + "_data")
 CACHE_DIR.mkdir(exist_ok=True)
 QUAD_FILE = CACHE_DIR / "english_quadgrams.txt"
@@ -109,10 +111,14 @@ except ImportError:
 def word_score(text: str) -> float:
     return sum(zipf_frequency(w.lower(), "en") for w in re.findall(r"[A-Z]{2,}", text))
 
-def sense_ratio(text: str, thr: float=3.5) -> float:
-    words = re.findall(r"[A-Z]{1,}", text)
-    if not words: return 0.0
-    return sum(zipf_frequency(w.lower(), "en")>=thr for w in words)/len(words)
+def sense_ratio(text: str, thr: float = 3.5) -> float:
+    """Return fraction of tokens with Zipf ≥ thr, ignoring names in IGNORE_SET."""
+    words = [w for w in re.findall(r"[A-Z]{1,}", text)
+             if w.lower() not in IGNORE_SET]
+    if not words:
+        return 1.0   # nothing left to score ⇒ treat as perfect
+    good = sum(zipf_frequency(w.lower(), "en") >= thr for w in words)
+    return good / len(words)
 
 # ----------------------------------------------------------------------
 # 3.  Utility functions
@@ -247,18 +253,39 @@ def crack(cipher:str,restarts:int,iters:int,lam:float,use_clean:bool,parallel:bo
 
     key, raw, score = crack_once(cipher, restarts, iters, lam,
                                  use_clean, parallel)
-    # Escalate if sense ratio poor
-    ratio=sense_ratio(clean(raw) if use_clean else raw.upper())
-    while ratio < 0.90:
-        print(f"[!] Sense {ratio:.0%} – escalating search…")
+    # show first attempt immediately
+    print("\n[ preview after first pass ]\n" + raw[:600] +
+          (" …\n" if len(raw) > 600 else "\n"))
+    # ---- ask user if this looks correct before escalating ----
+    if ratio < 0.90:       # only bother asking if sense is still low
+        try:
+            ans = input("Does that look correctly decrypted so far? [Y/n] ").strip().lower()
+        except EOFError:
+            ans = "n"      # non‑interactive environment – keep going
+        if ans in ("y", ""):
+            return key, raw, ratio
+    ratio = sense_ratio(clean(raw) if use_clean else raw.upper())
+    best_key, best_raw, best_ratio = key, raw, ratio
+    rounds = 0
+    while ratio < 0.90 and rounds < 3:
+        print(f"[!] Sense {ratio:.0%} – escalating search (round {rounds+1}) …")
+        rounds += 1
         restarts *= 3
         iters    *= 3
-        lam     *= 1.1           # gently favour real words
-        key, raw, score = crack_once(cipher, restarts, iters, lam,
-                                    use_clean, parallel)
-        plaintext = raw
-        ratio = sense_ratio(clean(plaintext) if use_clean else plaintext.upper())
-    return key,raw,score
+        lam      *= 1.1                         # favour dictionary words
+        key, raw, _ = crack_once(cipher, restarts, iters, lam,
+                                 use_clean, parallel)
+        ratio = sense_ratio(clean(raw) if use_clean else raw.upper())
+        if ratio > best_ratio:
+            best_key, best_raw, best_ratio = key, raw, ratio
+            print(f"\n[ preview round {rounds} ]\n" +
+                  best_raw[:600] + (" …\n" if len(best_raw) > 600 else "\n"))
+
+    if best_ratio < 0.90:
+        print(f"[!] Gave up after {rounds} escalations – best sense "
+              f"{best_ratio:.0%}. Returning best attempt.\n")
+
+    return best_key, best_raw, best_ratio
 
 # ----------------------------------------------------------------------
 # 8.  Auto scale params
@@ -280,7 +307,19 @@ def main():
     ap.add_argument('-i','--iters',type=int,help='Iterations per restart')
     ap.add_argument('--no-parallel',action='store_true')
     ap.add_argument('--file', metavar='PATH', help='Read ciphertext from file')
+    ap.add_argument('--ignore', action='append', default=[],
+                    help='Word(s) the sense metric should ignore; '
+                         'use multiple --ignore flags or comma‑separate')
     args=ap.parse_args()
+
+    # populate IGNORE_SET
+    for item in args.ignore:
+        for w in item.split(','):
+            w = w.strip().lower()
+            if w:
+                IGNORE_SET.add(w)
+    if IGNORE_SET:
+        print(f"[*] Ignoring {', '.join(sorted(IGNORE_SET))} in sense metric")
 
     if args.file:
         cipher_raw = Path(args.file).read_text(encoding="utf-8").strip()
