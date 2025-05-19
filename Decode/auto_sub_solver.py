@@ -4,12 +4,13 @@ auto_sub_solver.py  (v5 – English‑only, adaptive)
 
 Enhancements in this version
 ----------------------------
-• If first simulated‑annealing pass yields a low sense‑ratio (< 90 %), the solver
+• If first simulated‑annealing pass yields a low sense‑ratio (< 80 %), the solver
   automatically **escalates** – triples restarts & iterations and runs a second
   search.
 • Fast **Caesar‑shift detector**: tries all 26 rotations first; if a shift gives
-  ≥ 90 % common‑word ratio it is returned instantly.
+  ≥ 80 % common‑word ratio it is returned instantly.
 • More robust scoring: bigram+trigram+quadgram blend for noisy or short texts.
+• --stop-sense <ratio> lets you set the early‑exit sense threshold
 
 Core features retained: wordfreq Zipf scoring, Jakobsen polish, parallel
 restarts, auto‑scaling parameters, optional cleaning, English‑only.
@@ -245,7 +246,13 @@ def crack_once(cipher: str,
     raw = decode(cipher, key)
     return key, raw, score
 
-def crack(cipher:str,restarts:int,iters:int,lam:float,use_clean:bool,parallel:bool)->Tuple[str,str,float]:
+def crack(cipher: str,
+          restarts: int,
+          iters: int,
+          lam: float,
+          use_clean: bool,
+          parallel: bool,
+          stop_sense: float) -> Tuple[str, str, float]:
     # First try Caesar
     caesar_plain,caesar_key,ratio=caesar_try(cipher,use_clean)
     if caesar_plain:
@@ -257,7 +264,7 @@ def crack(cipher:str,restarts:int,iters:int,lam:float,use_clean:bool,parallel:bo
     print("\n[ preview after first pass ]\n" + raw[:600] +
           (" …\n" if len(raw) > 600 else "\n"))
     # ---- ask user if this looks correct before escalating ----
-    if ratio < 0.90:       # only bother asking if sense is still low
+    if ratio < stop_sense:
         try:
             ans = input("Does that look correctly decrypted so far? [Y/n] ").strip().lower()
         except EOFError:
@@ -267,7 +274,7 @@ def crack(cipher:str,restarts:int,iters:int,lam:float,use_clean:bool,parallel:bo
     ratio = sense_ratio(clean(raw) if use_clean else raw.upper())
     best_key, best_raw, best_ratio = key, raw, ratio
     rounds = 0
-    while ratio < 0.90 and rounds < 3:
+    while ratio < stop_sense and rounds < 3:
         print(f"[!] Sense {ratio:.0%} – escalating search (round {rounds+1}) …")
         rounds += 1
         restarts *= 3
@@ -281,7 +288,7 @@ def crack(cipher:str,restarts:int,iters:int,lam:float,use_clean:bool,parallel:bo
             print(f"\n[ preview round {rounds} ]\n" +
                   best_raw[:600] + (" …\n" if len(best_raw) > 600 else "\n"))
 
-    if best_ratio < 0.90:
+    if best_ratio < stop_sense:
         print(f"[!] Gave up after {rounds} escalations – best sense "
               f"{best_ratio:.0%}. Returning best attempt.\n")
 
@@ -310,6 +317,9 @@ def main():
     ap.add_argument('--ignore', action='append', default=[],
                     help='Word(s) the sense metric should ignore; '
                          'use multiple --ignore flags or comma‑separate')
+    ap.add_argument('--stop-sense', type=float, default=0.80,
+                    metavar='RATIO',
+                    help='Sense‑ratio at which to stop (default 0.80)')
     args=ap.parse_args()
 
     # populate IGNORE_SET
@@ -333,7 +343,9 @@ def main():
         r_auto,i_auto=autoscale(len(cipher_raw)); r=r or r_auto; i=i or i_auto
         print(f"[*] Auto params  restarts={r}  iterations={i}")
 
-    key,plain,score=crack(cipher_raw,r,i,args.lam,args.clean,not args.no_parallel)
+    key, plain, score = crack(cipher_raw, r, i, args.lam,
+                              args.clean, not args.no_parallel,
+                              args.stop_sense)
     print(f"\n[+] Best key  : {key}")
     sr=sense_ratio(clean(plain) if args.clean else plain.upper())
     print(f"[+] Sense‑ratio: {sr:.2%}\n\n===== Decryption =====\n")
