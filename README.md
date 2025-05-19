@@ -795,3 +795,4 @@ SIMBA & NALA
 4. python3 auto_sub_solver.py --clean -r RESTARTS -i ITERATIONS --file file.txt; This can be used for long files, like when I decoded the US constitution. You edit file.txt first.
 5. python3 auto_sub_solver.py --clean -r RESTARTS -i ITERATIONS --file file.txt --lambda LAMBDA; Higher emphasizes how much weight is given to words.
 6. python3 auto_sub_solver.py --clean -r RESTARTS -i ITERATIONS --file file.txt --lambda LAMBDA --ignore WHAT,TO,IGNORE
+7. python3 auto_sub_solver.py --clean -r RESTARTS -i ITERATIONS --file file.txt --lambda LAMBDA --ignore WHAT,TO,IGNORE --stop-sense STOP-SENSE; Inputted as 0.0 - 1.0, this adjusts how high sense-ratio needs to be for it to work.
