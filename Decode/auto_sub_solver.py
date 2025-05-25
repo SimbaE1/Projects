@@ -21,15 +21,29 @@ Dependencies
 
 Usage
 -----
-    python auto_sub_solver.py --clean "Ciphertext here …"
+    python auto_sub_solver.py --clean [--llama-always] "Ciphertext here …"
 """
 
 from __future__ import annotations
 import argparse, math, random, re, string, sys, urllib.request, multiprocessing as mp
 import time
+import json
 from collections import defaultdict
 from pathlib import Path
 from typing import Tuple
+
+# ----------------------------------------------------------------------
+# Global to hold CLI args for llama verbose
+# ----------------------------------------------------------------------
+args_global = None  # will be set in main()
+
+# ----------------------------------------------------------------------
+# requests import (optional for llama check)
+# ----------------------------------------------------------------------
+try:
+    import requests
+except ImportError:
+    requests = None
 
 # ----------------------------------------------------------------------
 # 0.  Constants & basic helpers
@@ -138,6 +152,105 @@ def swap_two(k: str) -> str:
 
 def decode(ct: str, key: str) -> str:
     return ct.upper().translate(str.maketrans(ALPHA, key))
+
+# ----------------------------------------------------------------------
+# Llama-3 coherence check helper
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Llama-3 coherence check helper
+# ----------------------------------------------------------------------
+def llama_is_english(text: str, url: str, timeout: int = 15) -> bool:
+    """
+    Ask a local Llama‑3/Ollama server whether the text is coherent English.
+    Returns True on a confident 'yes', False otherwise.
+    """
+    # Early exit if requests isn't available
+    if requests is None:
+        if getattr(args_global, "llama_verbose", False):
+            print("[!] 'requests' module not found – skipping Llama‑check. "
+                  "Install it with:  pip install requests")
+        return False
+    prompt = (
+        "Answer only YES or NO.\n\n"
+        "You are an expert cryptanalyst. The text below is the tentative "
+        "plaintext recovered from a newspaper Cryptoquip (simple mono‑alphabetic "
+        "substitution cipher). If it reads as coherent, grammatical English prose "
+        "or verse, answer YES. Otherwise answer NO.\n"
+        "-----\n"
+        f"{text[:1200]}\n"
+        "-----\n"
+    )
+
+    try:
+        resp = requests.post(url,
+                             json={"model": "llama3", "prompt": prompt},
+                             timeout=timeout)
+        if resp.status_code == 200:
+            if getattr(args_global, "llama_verbose", False):
+                print(f"[Llama‑check] raw response: {resp.text[:200]!r}")
+            if 'yes' in resp.text.lower():
+                return True
+    except Exception as e:
+        if getattr(args_global, "llama_verbose", False):
+            print(f"[Llama‑check] call failed: {e}")
+    return False
+
+# ----------------------------------------------------------------------
+# If Llama‑3 says the text is *not* fluent, ask it to suggest a fix
+# ----------------------------------------------------------------------
+def llama_suggest_fix(text: str, url: str, timeout: int = 30) -> str | None:
+    """
+    Ask Llama‑3 to rewrite / repair the supplied text.
+    Returns the suggested rewrite (string) or None on failure.
+    """
+    if requests is None:
+        return None
+    prompt = (
+        "The text below is supposed to be the plaintext of a Cryptoquip "
+        "(alphabet‑substitution cipher) but still looks garbled. "
+        "Please rewrite it as coherent English (or show what it was meant to say). "
+        "Return only the improved text.\n"
+        "-----\n"
+        f"{text[:2000]}\n"
+        "-----\n"
+    )
+    try:
+        resp = requests.post(
+            url,
+            json={"model": "llama3", "prompt": prompt},
+            timeout=timeout,
+            stream=True,           # enable streaming
+        )
+        if resp.status_code == 200:
+            chunks: list[str] = []
+            # Ollama returns one JSON object per line; collect "response" fields
+            for line in resp.iter_lines(decode_unicode=True):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    chunks.append(obj.get("response", ""))
+                except Exception:
+                    # ignore malformed fragments
+                    continue
+            suggestion = "".join(chunks).strip()
+            suggestion = suggestion.replace("\n", " ").strip()
+            if suggestion:
+                return suggestion
+    except Exception:
+        pass
+    return None
+
+# ----------------------------------------------------------------------
+# Helper: pretty‑print Llama suggestions
+# ----------------------------------------------------------------------
+def _fmt_llama_suggestion(text: str) -> str:
+    """Return a neatly wrapped block with a header for Llama rewrites."""
+    import textwrap
+    header = "\n[Llama‑suggest] possible rewrite ↓\n" + ("-" * 60)
+    wrapped = textwrap.fill(text.strip(), width=78)
+    return f"{header}\n{wrapped}\n"
 
 # ----------------------------------------------------------------------
 # 4.  Caesar shift quick check
@@ -252,26 +365,56 @@ def crack(cipher: str,
           lam: float,
           use_clean: bool,
           parallel: bool,
-          stop_sense: float) -> Tuple[str, str, float]:
+          stop_sense: float,
+          args) -> Tuple[str, str, float]:
     # First try Caesar
-    caesar_plain,caesar_key,ratio=caesar_try(cipher,use_clean)
+    caesar_plain, caesar_key, ratio = caesar_try(cipher, use_clean)
     if caesar_plain:
-        return caesar_key,caesar_plain,ratio
+        return caesar_key, caesar_plain, ratio
 
     key, raw, score = crack_once(cipher, restarts, iters, lam,
                                  use_clean, parallel)
+    # Compute actual ratio immediately after first pass
+    ratio = sense_ratio(clean(raw) if use_clean else raw.upper())
     # show first attempt immediately
     print("\n[ preview after first pass ]\n" + raw[:600] +
           (" …\n" if len(raw) > 600 else "\n"))
-    # ---- ask user if this looks correct before escalating ----
-    if ratio < stop_sense:
+    # Optional Llama‑3 sanity check
+    llama_ok = False
+    if args.llama_check and (getattr(args, "llama_always", False) or ratio >= stop_sense * 0.75):
+        llama_ok = llama_is_english(raw, args.llama_url)
+        if llama_ok:
+            print("[*] Llama‑3 confirms the text is coherent English.")
+        else:
+            # Llama responded "NO" – try to get a best‑guess rewrite
+            suggestion = llama_suggest_fix(raw, args.llama_url)
+            if suggestion:
+                print(_fmt_llama_suggestion(suggestion))
+
+    # ---- Ask user whether to accept, improve, or abandon before escalation ----
+    if llama_ok or ratio >= stop_sense:
+        try:
+            ans = input(
+                "Accept this decryption or keep searching for a potentially better one? "
+                "[A]ccept / [S]earch / [Q]uit  "
+            ).strip().lower()
+        except EOFError:
+            ans = "a"          # default to accept if input stream closed
+
+        if ans.startswith("s"):        # user wants more searching
+            # fall‑through to escalation loop below
+            pass
+        elif ans.startswith("q"):
+            sys.exit(0)
+        else:                          # accept by default
+            return key, raw, ratio
+    if ratio < stop_sense and not llama_ok:
         try:
             ans = input("Does that look correctly decrypted so far? [Y/n] ").strip().lower()
         except EOFError:
-            ans = "n"      # non‑interactive environment – keep going
+            ans = "n"
         if ans in ("y", ""):
             return key, raw, ratio
-    ratio = sense_ratio(clean(raw) if use_clean else raw.upper())
     best_key, best_raw, best_ratio = key, raw, ratio
     rounds = 0
     while ratio < stop_sense and rounds < 3:
@@ -320,7 +463,28 @@ def main():
     ap.add_argument('--stop-sense', type=float, default=0.80,
                     metavar='RATIO',
                     help='Sense‑ratio at which to stop (default 0.80)')
+    ap.add_argument('--llama-check', action='store_true',
+                    help='Ping a local Llama‑3/Ollama endpoint to confirm '
+                         'whether the decrypted text is coherent English')
+    ap.add_argument('--llama-url', default='http://localhost:11434/api/generate',
+                    metavar='URL',
+                    help='URL of the Ollama /generate endpoint '
+                         '(default: %(default)s)')
+    ap.add_argument('--llama-verbose', action='store_true',
+                    help='Print the raw response text returned by the '
+                         'Ollama /generate endpoint')
+    ap.add_argument('--llama-always', action='store_true',
+                    help='Query Llama even when sense‑ratio is below the threshold')
     args=ap.parse_args()
+
+    # Make CLI flags available to helper functions early
+    global args_global
+    args_global = args
+
+    # Diagnostic: warn if llama_check requested but requests missing
+    if args.llama_check and requests is None:
+        print("[!] '--llama-check' requested but the 'requests' library is missing. "
+              "Run:  pip install requests  (or disable the flag).")
 
     # populate IGNORE_SET
     for item in args.ignore:
@@ -345,11 +509,12 @@ def main():
 
     key, plain, score = crack(cipher_raw, r, i, args.lam,
                               args.clean, not args.no_parallel,
-                              args.stop_sense)
+                              args.stop_sense, args)
     print(f"\n[+] Best key  : {key}")
     sr=sense_ratio(clean(plain) if args.clean else plain.upper())
     print(f"[+] Sense‑ratio: {sr:.2%}\n\n===== Decryption =====\n")
     print(plain)
+
 
 if __name__=='__main__':
     main()
