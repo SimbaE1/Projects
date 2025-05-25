@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Static AI Chat</title>
+<style>
+  body{font-family:sans-serif;max-width:650px;margin:40px auto;padding:0 1rem;}
+  #chat{white-space:pre-wrap;border:1px solid #ccc;border-radius:6px;
+        padding:1rem;height:300px;overflow-y:auto;}
+  form{display:flex;margin-top:1rem;}
+  input{flex:1;padding:.6rem;border:1px solid #888;border-radius:6px;font-size:1rem;}
+  button{margin-left:.5rem;padding:.6rem 1rem;font-size:1rem;}
+</style>
+</head>
+<body>
+<h1>Static AI Chat</h1>
+
+<div id="chat">(conversation appears here)</div>
+
+<form id="chatForm">
+  <input id="userInput" placeholder="Say something…" autocomplete="off" />
+  <button type="submit">Send</button>
+</form>
+
+<!--  secret API key goes in secrets.js (NOT committed) -->
+<script src="secrets.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
