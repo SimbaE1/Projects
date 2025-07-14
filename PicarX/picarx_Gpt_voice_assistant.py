@@ -1,15 +1,14 @@
 import os
 import speech_recognition as sr
 import pyttsx3
-import openai  # Use openai, not OpenAI class
+import openai
 import yaml
 
 # Load the YAML
 with open('.secrets', 'r') as f:
     secrets = yaml.safe_load(f)
 
-openai_key   = secrets['openai']['api_key']
-client = openai(api_key=openai_key)
+openai.api_key = secrets['openai']['api_key']
 
 # Setup text-to-speech with espeak (works better on Pi)
 engine = pyttsx3.init(driverName='espeak')
